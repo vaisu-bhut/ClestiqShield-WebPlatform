@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import logo from "@/assets/icon.png";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Settings, User, BarChart2, Grid, LogOut } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
@@ -38,9 +40,18 @@ export function Sidebar() {
         <div className="flex flex-col h-full w-64 glass border-r border-border/50 text-card-foreground">
             <div className="p-6 border-b border-border/50">
                 <div className="flex flex-col">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-green-400 bg-clip-text text-transparent">
-                        Clestiq Shield
-                    </h1>
+                    <div className="flex items-center gap-3 mb-1">
+                        <Image
+                            src={logo}
+                            alt="Clestiq Shield"
+                            width={32}
+                            height={32}
+                            className="object-contain"
+                        />
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-green-400 bg-clip-text text-transparent">
+                            Clestiq Shield
+                        </h1>
+                    </div>
                     <span className="text-xs font-mono text-muted-foreground/60 mt-1"> v2.1.1</span>
                 </div>
             </div>

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, Mail, Lock, User, AlertCircle } from "lucide-react";
+import Image from "next/image";
+import logo from "@/assets/icon.png";
+import { Mail, Lock, User, AlertCircle } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { setAuthToken } from "@/lib/cookies";
 
@@ -52,8 +54,14 @@ export default function SignupPage() {
                 {/* Logo */}
                 <div className="flex justify-center mb-8">
                     <div className="flex items-center gap-2">
-                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                            <ShieldCheck className="w-8 h-8 text-primary" />
+                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center relative overflow-hidden">
+                            <Image
+                                src={logo}
+                                alt="Clestiq Shield"
+                                width={32}
+                                height={32}
+                                className="object-contain"
+                            />
                         </div>
                         <span className="text-2xl font-bold">Clestiq Shield</span>
                     </div>
