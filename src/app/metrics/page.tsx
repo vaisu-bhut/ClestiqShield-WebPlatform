@@ -91,9 +91,52 @@ export default function MetricsPage() {
         );
     }
 
+    // SVG Charts Components
+
+
+    const DonutChart = ({ active, total }: { active: number, total: number }) => {
+        const radius = 40;
+        const circumference = 2 * Math.PI * radius;
+        const activePercent = total > 0 ? active / total : 0;
+        const activeOffset = circumference - (activePercent * circumference);
+
+        return (
+            <div className="relative h-48 w-48 mx-auto flex items-center justify-center">
+                <svg className="transform -rotate-90 w-full h-full" viewBox="0 0 100 100">
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r={radius}
+                        fill="transparent"
+                        stroke="#ef4444"
+                        strokeWidth="12"
+                    />
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r={radius}
+                        fill="transparent"
+                        stroke="#22c55e"
+                        strokeWidth="12"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={activeOffset}
+                        strokeLinecap="round"
+                    />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-3xl font-bold">{Math.round(activePercent * 100)}%</span>
+                    <span className="text-xs text-muted-foreground">Active</span>
+                </div>
+            </div>
+        );
+    };
+
     // Sorters
     const topAppsByUsage = [...appsMetrics].sort((a, b) => b.totalRequests - a.totalRequests).slice(0, 5);
-    const topAppsByKeys = [...appsMetrics].sort((a, b) => b.keyCount - a.keyCount).slice(0, 5);
+
+    // Mock Trend Data (since we don't have historical usage API yet)
+    // In real app, this would come from `analytics` endpoint
+
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto pb-10">
@@ -146,12 +189,37 @@ export default function MetricsPage() {
                 </div>
             </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+
+
+                {/* Donut Chart (1 Col) */}
+                <div className="glass p-6 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
+                    <h3 className="text-lg font-semibold mb-4 w-full flex items-center gap-2">
+                        <Key className="h-5 w-5 text-primary" />
+                        Key Distribution
+                    </h3>
+                    <DonutChart active={globalStats.activeKeys} total={globalStats.totalKeys} />
+                    <div className="mt-6 w-full flex justify-center gap-6 text-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-primary" />
+                            <span className="text-muted-foreground">Active</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-red-500" />
+                            <span className="text-muted-foreground">Disabled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                 {/* Top Apps by Usage - Bar Chart */}
                 <div className="glass p-6 rounded-2xl border border-white/5">
                     <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5 text-primary" />
+                        <BarChart3 className="h-5 w-5 text-blue-500" />
                         Top Applications by Request Volume
                     </h3>
                     <div className="space-y-4">
@@ -169,7 +237,7 @@ export default function MetricsPage() {
                                     </div>
                                     <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden">
                                         <div
-                                            className="h-full bg-gradient-to-r from-primary to-blue-600 rounded-full transition-all duration-1000 ease-out group-hover:brightness-110"
+                                            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-1000 ease-out group-hover:brightness-110"
                                             style={{ width: `${percent}%` }}
                                         />
                                     </div>
@@ -180,92 +248,47 @@ export default function MetricsPage() {
                     </div>
                 </div>
 
-                {/* Top Apps by Key Count - Bar Chart */}
+                {/* Top API Keys Table */}
                 <div className="glass p-6 rounded-2xl border border-white/5">
                     <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                        <Key className="h-5 w-5 text-green-500" />
-                        Applications by Key Count
+                        <Server className="h-5 w-5 text-purple-500" />
+                        Top Active API Keys (Global)
                     </h3>
-                    <div className="space-y-4">
-                        {topAppsByKeys.map((item, index) => {
-                            const maxVal = topAppsByKeys[0].keyCount || 1;
-                            const percent = (item.keyCount / maxVal) * 100;
-                            return (
-                                <div key={item.app.id} className="relative group">
-                                    <div className="flex justify-between text-sm mb-1.5 z-10 relative">
-                                        <span className="font-medium text-foreground flex items-center gap-2">
-                                            <span className="text-muted-foreground font-mono text-xs w-4">{index + 1}.</span>
-                                            {item.app.name}
-                                        </span>
-                                        <span className="text-muted-foreground font-mono">
-                                            {item.activeKeyCount} / {item.keyCount} <span className="text-xs">active</span>
-                                        </span>
-                                    </div>
-                                    <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden flex">
-                                        <div
-                                            className="h-full bg-green-500 rounded-l-full transition-all duration-1000 ease-out"
-                                            style={{ width: `${(item.activeKeyCount / maxVal) * 100}%` }}
-                                        />
-                                        <div
-                                            className="h-full bg-white/10"
-                                            style={{ width: `${((item.keyCount - item.activeKeyCount) / maxVal) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {topAppsByKeys.length === 0 && <p className="text-center text-muted-foreground py-8">No applications found.</p>}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead>
+                                <tr className="border-b border-white/10">
+                                    <th className="pb-3 text-muted-foreground font-medium pl-2">API Key Name / Prefix</th>
+                                    <th className="pb-3 text-muted-foreground font-medium">App</th>
+                                    <th className="pb-3 text-muted-foreground font-medium text-right pr-2">Requests</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {topKeys.slice(0, 5).map((key) => (
+                                    <tr key={key.id} className="group hover:bg-white/5 transition-colors">
+                                        <td className="py-3 pl-2">
+                                            <div className="font-medium text-foreground">{key.name || "Unnamed Key"}</div>
+                                            <div className="text-xs text-muted-foreground font-mono">{key.key_prefix}...</div>
+                                        </td>
+                                        <td className="py-3 text-foreground/80">{key.appName}</td>
+                                        <td className="py-3 pr-2 text-right">
+                                            <span className="inline-block bg-purple-500/10 text-purple-400 px-2 py-1 rounded font-mono text-xs border border-purple-500/20">
+                                                {(key.request_count || 0).toLocaleString()}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {topKeys.length === 0 && (
+                                    <tr>
+                                        <td colSpan={3} className="py-8 text-center text-muted-foreground">No API keys found.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            </div>
-
-            {/* Top API Keys Table */}
-            <div className="glass p-6 rounded-2xl border border-white/5">
-                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                    <Server className="h-5 w-5 text-purple-500" />
-                    Top Active API Keys (Global)
-                </h3>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead>
-                            <tr className="border-b border-white/10">
-                                <th className="pb-3 text-muted-foreground font-medium pl-2">API Key Name / Prefix</th>
-                                <th className="pb-3 text-muted-foreground font-medium">Application</th>
-                                <th className="pb-3 text-muted-foreground font-medium">Created</th>
-                                <th className="pb-3 text-muted-foreground font-medium text-right">Last Used</th>
-                                <th className="pb-3 text-muted-foreground font-medium text-right pr-2">Requests</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {topKeys.map((key) => (
-                                <tr key={key.id} className="group hover:bg-white/5 transition-colors">
-                                    <td className="py-3 pl-2">
-                                        <div className="font-medium text-foreground">{key.name || "Unnamed Key"}</div>
-                                        <div className="text-xs text-muted-foreground font-mono">{key.key_prefix}...</div>
-                                    </td>
-                                    <td className="py-3 text-foreground/80">{key.appName}</td>
-                                    <td className="py-3 text-muted-foreground">
-                                        {new Date(key.created_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="py-3 text-right text-muted-foreground">
-                                        {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}
-                                    </td>
-                                    <td className="py-3 pr-2 text-right">
-                                        <span className="inline-block bg-purple-500/10 text-purple-400 px-2 py-1 rounded font-mono text-xs border border-purple-500/20">
-                                            {(key.request_count || 0).toLocaleString()}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                            {topKeys.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="py-8 text-center text-muted-foreground">No API keys found.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>
     );
 }
+

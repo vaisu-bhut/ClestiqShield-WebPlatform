@@ -15,50 +15,64 @@ export default function DashboardPage() {
     const [totalRequests, setTotalRequests] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [topAppsByKeyCount, setTopAppsByKeyCount] = useState<(Application & { keyCount: number })[]>([]);
+    const [topAppsByCost, setTopAppsByCost] = useState<(Application & { cost: number })[]>([]);
+    const [topAppsByDisabledKeys, setTopAppsByDisabledKeys] = useState<(Application & { disabledCount: number })[]>([]);
+    const [topKeys, setTopKeys] = useState<(ApiKey & { appName: string })[]>([]);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                // Fetch Apps and User Profile in parallel
                 const [appsRes, userRes] = await Promise.all([
                     appsApi.getAll(),
                     usersApi.get()
                 ]);
 
-                // Sort apps by created_at descending
                 const sortedApps = appsRes.data.sort((a, b) =>
                     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                 );
                 setApps(sortedApps);
                 setUser(userRes.data);
 
-                // Fetch keys for all apps to get total count & usage
                 const keysPromises = sortedApps.map(app => apiKeysApi.list(app.id));
                 const keysResponses = await Promise.all(keysPromises);
 
                 let totalActive = 0;
                 let globalRequests = 0;
-                const appUsageMap = new Map<string, number>();
+
+                // Temp arrays for sorting
+                const appsWithUsageAndCost: (Application & { usage: number; cost: number })[] = [];
+                const appsWithKeyCounts: (Application & { keyCount: number })[] = [];
+                const appsWithDisabled: (Application & { disabledCount: number })[] = [];
+                const allKeys: (ApiKey & { appName: string })[] = [];
 
                 keysResponses.forEach((res, index) => {
                     const appKeys = res.data;
-                    totalActive += appKeys.filter(k => k.is_active).length;
+                    const app = sortedApps[index];
+
+                    const activeCount = appKeys.filter(k => k.is_active).length;
+                    const disabledCount = appKeys.length - activeCount;
+                    totalActive += activeCount;
 
                     const appRequests = appKeys.reduce((sum, key) => sum + (key.request_count || 0), 0);
                     globalRequests += appRequests;
-                    appUsageMap.set(sortedApps[index].id, appRequests);
+
+                    appsWithUsageAndCost.push({ ...app, usage: appRequests, cost: appRequests * 0.0002 });
+                    appsWithKeyCounts.push({ ...app, keyCount: appKeys.length });
+                    appsWithDisabled.push({ ...app, disabledCount });
+
+                    appKeys.forEach(k => allKeys.push({ ...k, appName: app.name }));
                 });
 
                 setActiveKeysCount(totalActive);
                 setTotalRequests(globalRequests);
 
-                // Calculate top apps
-                const appsWithUsage = sortedApps.map(app => ({
-                    ...app,
-                    usage: appUsageMap.get(app.id) || 0
-                })).sort((a, b) => b.usage - a.usage);
-
-                setTopApps(appsWithUsage.slice(0, 5));
+                // Set Top Lists
+                setTopApps(appsWithUsageAndCost.sort((a, b) => b.usage - a.usage).slice(0, 5));
+                setTopAppsByKeyCount(appsWithKeyCounts.sort((a, b) => b.keyCount - a.keyCount).slice(0, 5));
+                setTopAppsByCost(appsWithUsageAndCost.sort((a, b) => b.cost - a.cost).slice(0, 5));
+                setTopAppsByDisabledKeys(appsWithDisabled.sort((a, b) => b.disabledCount - a.disabledCount).slice(0, 5));
+                setTopKeys(allKeys.sort((a, b) => (b.request_count || 0) - (a.request_count || 0)).slice(0, 5));
 
             } catch (err) {
                 console.error("Failed to fetch dashboard data:", err);
@@ -74,7 +88,12 @@ export default function DashboardPage() {
     const recentApps = apps.slice(0, 3);
     const totalApps = apps.length;
     const displayName = user?.full_name || authUser?.full_name || 'User';
-    const estimatedCost = totalRequests * 0.0002; // Mock cost: $0.20 per 1k requests
+    const estimatedCost = totalRequests * 0.0002;
+
+
+
+    // Trend Data Mock
+
 
     if (loading) {
         return (
@@ -161,6 +180,100 @@ export default function DashboardPage() {
                 </div>
             </div>
 
+            {/* Analytics & Insights Section */}
+            <div>
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    Analytics & Insights
+                </h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+
+                    {/* Top Cost / Abuse */}
+                    <div className="col-span-3 glass p-6 rounded-xl border border-white/5 space-y-6">
+                        <div>
+                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Top Spenders (Est. Cost)</h4>
+                            {topAppsByCost.slice(0, 3).map((app, i) => (
+                                <div key={app.id} className="flex justify-between items-center text-sm py-1 border-b border-white/5 last:border-0">
+                                    <span className="text-foreground">{i + 1}. {app.name}</span>
+                                    <span className="font-mono text-primary">${app.cost.toFixed(3)}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3 text-red-400">Potential Abuse (Disabled Keys)</h4>
+                            {topAppsByDisabledKeys.filter(a => a.disabledCount > 0).slice(0, 3).map((app, i) => (
+                                <div key={app.id} className="flex justify-between items-center text-sm py-1 border-b border-white/5 last:border-0">
+                                    <span className="text-foreground">{i + 1}. {app.name}</span>
+                                    <span className="font-mono text-red-400">{app.disabledCount} keys</span>
+                                </div>
+                            ))}
+                            {topAppsByDisabledKeys.filter(a => a.disabledCount > 0).length === 0 && (
+                                <p className="text-xs text-muted-foreground">No disabled keys detected.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                    {/* Top Apps by Usage */}
+                    <div className="glass p-5 rounded-xl border border-white/5">
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Most Active Apps</h4>
+                        {topApps.slice(0, 5).map((app, i) => (
+                            <div key={app.id} className="mb-2 last:mb-0">
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span>{app.name}</span>
+                                    <span className="text-muted-foreground">{app.usage.toLocaleString()}</span>
+                                </div>
+                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-500" style={{ width: `${(app.usage / (topApps[0]?.usage || 1)) * 100}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Top Apps by Key Count */}
+                    <div className="glass p-5 rounded-xl border border-white/5">
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Apps w/ Most Keys</h4>
+                        {topAppsByKeyCount.slice(0, 5).map((app, i) => (
+                            <div key={app.id} className="mb-2 last:mb-0">
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span>{app.name}</span>
+                                    <span className="text-muted-foreground">{app.keyCount} keys</span>
+                                </div>
+                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-purple-500" style={{ width: `${(app.keyCount / (topAppsByKeyCount[0]?.keyCount || 1)) * 100}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Top Keys Global */}
+                    <div className="col-span-2 glass p-5 rounded-xl border border-white/5">
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Top Used API Keys (Global)</h4>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                                <thead>
+                                    <tr className="border-b border-white/5 text-muted-foreground">
+                                        <th className="pb-2">Key Prefix</th>
+                                        <th className="pb-2">App</th>
+                                        <th className="pb-2 text-right">Requests</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {topKeys.slice(0, 5).map(key => (
+                                        <tr key={key.id}>
+                                            <td className="py-2 font-mono text-foreground">{key.key_prefix}...</td>
+                                            <td className="py-2 text-muted-foreground">{key.appName}</td>
+                                            <td className="py-2 text-right text-primary font-medium">{(key.request_count || 0).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Recent Activity Section */}
                 <div className="lg:col-span-2">
@@ -207,54 +320,26 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* Usage & Cost Overview */}
+                {/* Usage & Cost Side Card (Simplified) */}
                 <div className="lg:col-span-1 space-y-6">
                     <div>
                         <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                            Usage Overview
+                            Quick Summary
                         </h3>
                         <div className="glass p-6 rounded-xl border border-white/5 space-y-6">
 
                             {/* Cost Estimate */}
                             <div className="flex items-center justify-between pb-4 border-b border-white/5">
-                                <div>
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Est. Cost</p>
-                                    <p className="text-2xl font-bold text-foreground">${estimatedCost.toFixed(2)}</p>
-                                </div>
+
                                 <div className="text-right">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Requests</p>
                                     <p className="text-lg font-bold text-primary">{totalRequests.toLocaleString()}</p>
                                 </div>
                             </div>
 
-                            {/* Top Apps List */}
-                            <div>
-                                <h4 className="text-sm font-medium text-muted-foreground mb-3">Top Applications</h4>
-                                {topApps.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {topApps.map((app, index) => {
-                                            const maxUsage = topApps[0].usage || 1;
-                                            const percent = (app.usage / maxUsage) * 100;
-                                            return (
-                                                <div key={app.id}>
-                                                    <div className="flex justify-between text-xs mb-1">
-                                                        <span className="text-foreground font-medium">{index + 1}. {app.name}</span>
-                                                        <span className="text-muted-foreground">{app.usage.toLocaleString()} reqs</span>
-                                                    </div>
-                                                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-primary/80 rounded-full"
-                                                            style={{ width: `${percent}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-muted-foreground text-center py-4">No usage data available.</p>
-                                )}
-                            </div>
+                            <Link href="/metrics" className="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-sm font-medium">
+                                Go to Detailed Metrics <ArrowRight className="ml-2 h-4 w-4" />
+                            </Link>
 
                         </div>
                     </div>
@@ -263,3 +348,4 @@ export default function DashboardPage() {
         </div>
     );
 }
+

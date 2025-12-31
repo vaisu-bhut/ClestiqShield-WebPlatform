@@ -168,7 +168,11 @@ export default function AppDetailsPage() {
                                 <div>
                                     <div className="flex items-center gap-3">
                                         <p className="font-medium text-foreground">{key.name || "Unnamed Key"}</p>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] bg-green-500/10 text-green-400 border border-green-500/20`}>Active</span>
+                                        {key.is_active ? (
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-green-500/10 text-green-400 border border-green-500/20">Active</span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-red-500/10 text-red-400 border border-red-500/20">Disabled</span>
+                                        )}
                                     </div>
                                     <p className="text-xs font-mono text-muted-foreground mt-1">
                                         Prefix: <span className="text-foreground/80">{key.key_prefix}</span> • Created: {new Date(key.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
